@@ -10,6 +10,7 @@ if not zap_file.exists():
 
 with zap_file.open() as f:
     data = json.load(f)
+    print(data)
 
 alerts = []
 for site in data.get("site", []):

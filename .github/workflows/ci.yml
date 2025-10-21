@@ -100,14 +100,17 @@ jobs:
       - name: Set up Docker
         uses: docker/setup-buildx-action@v2
 
+      - name: Build ephemeral Docker app
+        run: |
+          docker build -t tp-devsecops:latest .
+
       - name: Deploy ephemeral app
         run: |
-          # Example: run your app in Docker
           docker run -d --name ephemeral-app -p 8000:8000 tp-devsecops:latest
           # Wait for it to start
           sleep 15
           
-      - name: Run OWASP ZAP scan
+      - name: Run ZAP scan
         run: |
           mkdir -p zap-reports
           docker run -v "${{ github.workspace }}/zap-reports:/zap/wrk:rw" --network="host" zaproxy/zap-stable \

@@ -95,28 +95,30 @@ jobs:
       - name: Set up Docker
         uses: docker/setup-buildx-action@v2
 
+      - name: Create Docker network
+        run: docker network create tp-net
+
       - name: Build Docker image
         run: docker build -t tp-devsecops:latest .
 
       - name: Run app container
-        run: |
-          docker run -d -p 8000:8000 --name tp-devsecops tp-devsecops:latest
+        run: docker run -d --network tp-net --name tp-devsecops -p 8000:8000 tp-devsecops:latest
 
-      - name: Wait for app to start
+      - name: Prepare report folder
         run: |
-          echo "Waiting for the app to start..."
-          sleep 10
-          curl -f http://localhost:8000 || (echo "App failed to start" && exit 1)
+          mkdir -p zap-reports
+          chmod 777 zap-reports
 
       - name: Run OWASP ZAP DAST scan
         run: |
-          mkdir -p zap-reports
-          docker run --rm \
-            -v "$(pwd)/zap-reports:/zap/wrk:rw" \
+          docker run --rm --network tp-net -v $(pwd)/zap-reports:/zap/wrk:rw \
             zaproxy/zap-stable zap-baseline.py \
-            -t http://host.docker.internal:8000 \
-            -r zap_report.html -I
-        continue-on-error: true
+            -t http://tp-devsecops:8000 \
+            -r zap_report.html -d
+          # Fail if any high-risk issues are detected in ZAP report
+          if grep -q "FAIL" zap-reports/zap_report.html; then
+            echo "Critical vulnerabilities found by ZAP"; exit 1
+          fi
 
       - name: Upload ZAP report
         uses: actions/upload-artifact@v4
@@ -124,8 +126,8 @@ jobs:
           name: zap-report
           path: zap-reports/zap_report.html
 
-      - name: Stop and remove app container
-        if: always()
+      - name: Stop and remove app container and network
         run: |
-          docker stop tp-devsecops
-          docker rm tp-devsecops
+          docker stop tp-devsecops || true
+          docker rm tp-devsecops || true
+          docker network rm tp-net || true

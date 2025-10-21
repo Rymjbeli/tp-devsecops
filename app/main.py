@@ -5,15 +5,16 @@ import subprocess
 import pickle
 from base64 import b64decode
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, RedirectResponse
-import html
+import sqlite3
+from fastapi.responses import Response, HTMLResponse
+import os
 
 app = FastAPI()
 
 # 1) CORS trop permissif
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Origine permissive
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -35,13 +36,33 @@ users_db: List[User] = [
 # -------------------------
 # Secret en clair
 # -------------------------
-API_KEY: str = "super-secret-api-key-123456"  # Hardcoded secret
+API_KEY: str = "super-secret-api-key-123456"
 
 
 # -------- Routes publiques --------
-@app.get("/")
-def read_root() -> Dict[str, str]:
-    return {"message": "Hello, Secure World!"}
+@app.get("/", response_class=HTMLResponse)
+def read_root_html():
+    html = """
+    <html><head><title>Demo DAST</title></head><body>
+      <h1>Demo DAST - endpoints vulnérables</h1>
+
+      <h2>Command Injection Test</h2>
+      <form action="/run" method="get">
+        <input name="cmd" placeholder="Enter command"/>
+        <button>Run</button>
+      </form>
+
+      <h2>Direct Links</h2>
+      <ul>
+        <li><a href="/debug/all_users">/debug/all_users</a></li>
+        <li><a href="/secret">/secret</a></li>
+        <li><a href="/find_by_name?name=Rim">/find_by_name?name=Rim</a></li>
+        <li><a href="/run?cmd=echo hello">/run?cmd=echo hello</a></li>
+      </ul>
+      <p>This page exists to help DAST scanners find the vulnerable endpoints.</p>
+    </body></html>
+    """
+    return HTMLResponse(content=html)
 
 
 @app.get("/users", response_model=List[User])
@@ -57,28 +78,23 @@ def get_user(user_id: int) -> User:
     raise HTTPException(status_code=404, detail="User not found")
 
 
-# -------- Routes vulnérables conservées --------
-
-# 1) Endpoint exposant un secret (DAST)
+# -------- Routes vulnérables --------
 @app.get("/secret")
 def read_secret() -> Dict[str, str]:
     return {"secret": "12345"}
 
 
-# 2) Endpoint qui retourne toute la DB (exposition d'info) (DAST)
 @app.get("/debug/all_users")
 def debug_all_users() -> Dict[str, List[Dict[str, Any]]]:
     return {"users": [u.model_dump() for u in users_db]}
 
 
-# 3) Injection SQL simulée (SAST)
 @app.get("/find_by_name")
 def find_by_name(name: str) -> Dict[str, str]:
     sql = "SELECT * FROM users WHERE name = '" + name + "'"
     return {"query": sql}
 
 
-# 4) Command injection via subprocess (SAST)
 @app.get("/run")
 def run_cmd(cmd: str) -> Dict[str, str]:
     try:
@@ -88,7 +104,6 @@ def run_cmd(cmd: str) -> Dict[str, str]:
         return {"error": str(e)}
 
 
-# 5) Désérialisation non sécurisée avec pickle (SAST)
 @app.post("/deserialize")
 def deserialize(payload: Dict[str, str]) -> Dict[str, Any]:
     data_b64 = payload.get("data", "")
@@ -99,37 +114,3 @@ def deserialize(payload: Dict[str, str]) -> Dict[str, Any]:
     except Exception as e:
         return {"error": str(e)}
 
-
-# ----- XSS réfléchi (POUR DÉMONSTRATION UNIQUEMENT) -----
-@app.get("/vuln/xss", response_class=HTMLResponse)
-def vuln_xss(input: str = "") -> HTMLResponse:
-    """
-    VULN: XSS réfléchi - retourne du HTML contenant l'entrée utilisateur sans échappement.
-    Ceci est intentionnellement vulnérable pour la démo TP.
-    """
-    # vulnérabilité intentionnelle : NE PAS assainir dans cette branche de démonstration
-    vulnerable_html = f"""
-    <html>
-      <head><title>Démo XSS Réfléchi</title></head>
-      <body>
-        <h1>Démo XSS Réfléchi</h1>
-        <p>Entrée (réfléchie) : {input}</p>
-        <form action="/vuln/xss" method="get">
-          <input name="input" value="{html.escape(input)}"/>
-          <button type="submit">Envoyer</button>
-        </form>
-      </body>
-    </html>
-    """
-    return HTMLResponse(content=vulnerable_html)
-
-
-# ----- Redirection ouverte (POUR DÉMONSTRATION UNIQUEMENT) -----
-@app.get("/vuln/redirect")
-def vuln_redirect(url: str = ""):
-    """
-    VULN: redirection ouverte - redirige vers l'URL fournie par l'utilisateur sans validation.
-    Intentionnel pour la démo uniquement.
-    """
-    # redirection simple vers l'URL fournie
-    return RedirectResponse(url=url or "/")

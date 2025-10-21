@@ -1,4 +1,4 @@
-name: CI - Build, Test, Docker, SAST, SCA
+name: CI - Build, Test, Docker, SAST, SCA, DAST
 
 on:
   push:
@@ -9,6 +9,8 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    outputs:
+      docker-image: tp-devsecops:latest
 
     steps:
       - name: Checkout repository
@@ -31,7 +33,7 @@ jobs:
         run: pytest --maxfail=1 --disable-warnings -q
 
       - name: Build Docker image
-        run: docker build -t tp-devsecops .
+        run: docker build -t tp-devsecops:latest .
 
   snyk-sca:
     runs-on: ubuntu-latest
@@ -61,7 +63,6 @@ jobs:
       - name: Run Snyk scan
         run: snyk test --file=requirements.txt --severity-threshold=high
 
-
   bandit-sast:
     runs-on: ubuntu-latest
     needs: build-and-test
@@ -80,8 +81,48 @@ jobs:
       - name: Run Bandit SAST scan
         run: |
           bandit -r app -lll -iii
-          # Fail if any HIGH severity issues
           if bandit -r app -f json | jq '.results[] | select(.issue_severity=="HIGH")' | grep .; then
             echo "High severity Bandit issues found"; exit 1
           fi
 
+  dast-zap:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v2
+
+      - name: Run app container
+        run: |
+          docker run -d -p 8000:8000 --name tp-devsecops tp-devsecops:latest
+
+      - name: Wait for app to start
+        run: |
+          echo "Waiting for the app to start..."
+          sleep 10
+          curl -f http://localhost:8000 || (echo "App failed to start" && exit 1)
+
+      - name: Run OWASP ZAP DAST scan
+        run: |
+          mkdir -p zap-reports
+          docker run --rm \
+            -v "$(pwd)/zap-reports:/zap/wrk:rw" \
+            zaproxy/zap-stable zap-baseline.py \
+            -t http://host.docker.internal:8000 \
+            -r zap_report.html -I
+        continue-on-error: true
+
+      - name: Upload ZAP report
+        uses: actions/upload-artifact@v3
+        with:
+          name: zap-report
+          path: zap-reports/zap_report.html
+
+      - name: Stop and remove app container
+        if: always()
+        run: |
+          docker stop tp-devsecops
+          docker rm tp-devsecops

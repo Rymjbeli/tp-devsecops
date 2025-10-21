@@ -125,7 +125,7 @@ jobs:
             -t http://ephemeral-app:8000 \
             -r /zap/wrk/zap_report.html \
             -J /zap/wrk/zap_report.json \
-            -z "-config api.disablekey=true"
+            -z "-config api.disablekey=true" || true
 
 
       - name: Check ZAP alerts

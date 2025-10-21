@@ -32,8 +32,8 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}
         run: pytest --maxfail=1 --disable-warnings -q
 
-      - name: Build Docker image
-        run: docker build -t tp-devsecops:latest .
+#      - name: Build Docker image
+#        run: docker build -t tp-devsecops:latest .
 
   snyk-sca:
     runs-on: ubuntu-latest
@@ -94,6 +94,9 @@ jobs:
 
       - name: Set up Docker
         uses: docker/setup-buildx-action@v2
+
+      - name: Build Docker image
+        run: docker build -t tp-devsecops:latest .
 
       - name: Run app container
         run: |

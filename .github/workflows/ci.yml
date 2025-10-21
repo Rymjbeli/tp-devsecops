@@ -119,31 +119,10 @@ jobs:
             -J /zap/wrk/zap_report.json \
             -z "-config api.disablekey=true"
 
+
       - name: Check ZAP alerts
         run: |
-          ALERTS=$(python3 - <<'EOF'
-import json
-
-with open("zap-reports/zap_report.json") as f:
-    data = json.load(f)
-
-alerts = []
-for site in data.get("site", []):
-    for a in site.get("alerts", []):
-        severity = a.get("riskdesc", "").split("(")[0].strip()
-        if severity in ("High", "Critical"):
-            alerts.append(a)
-
-print(len(alerts))
-EOF
-)
-          echo "High/Critical alerts: $ALERTS"
-          if [ "$ALERTS" -gt 0 ]; then
-            echo "Fail: High/Critical alerts found"
-            exit 1
-          else
-            echo "No High/Critical alerts — OK"
-          fi
+          python scripts/check_zap_alerts.py
 
 
       - name: Tear down ephemeral app

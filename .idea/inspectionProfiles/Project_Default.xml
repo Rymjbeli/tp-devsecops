@@ -1,0 +1,37 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <value>
+          <list size="17">
+            <item index="0" class="java.lang.String" itemvalue="ipython_pygments_lexers" />
+            <item index="1" class="java.lang.String" itemvalue="presidio_analyzer" />
+            <item index="2" class="java.lang.String" itemvalue="presidio_anonymizer" />
+            <item index="3" class="java.lang.String" itemvalue="prompt_toolkit" />
+            <item index="4" class="java.lang.String" itemvalue="pyasn1_modules" />
+            <item index="5" class="java.lang.String" itemvalue="docstring_parser" />
+            <item index="6" class="java.lang.String" itemvalue="pure_eval" />
+            <item index="7" class="java.lang.String" itemvalue="pydantic_core" />
+            <item index="8" class="java.lang.String" itemvalue="language_data" />
+            <item index="9" class="java.lang.String" itemvalue="email_validator" />
+            <item index="10" class="java.lang.String" itemvalue="typing_extensions" />
+            <item index="11" class="java.lang.String" itemvalue="langchain-core" />
+            <item index="12" class="java.lang.String" itemvalue="langsmith" />
+            <item index="13" class="java.lang.String" itemvalue="tenacity" />
+            <item index="14" class="java.lang.String" itemvalue="google-genai" />
+            <item index="15" class="java.lang.String" itemvalue="google-cloud-aiplatform" />
+            <item index="16" class="java.lang.String" itemvalue="torch" />
+          </list>
+        </value>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyPep8NamingInspection" enabled="true" level="WEAK WARNING" enabled_by_default="true">
+      <option name="ignoredErrors">
+        <list>
+          <option value="N803" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>

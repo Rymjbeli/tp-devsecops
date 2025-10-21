@@ -10,7 +10,14 @@ client = TestClient(app)
 def test_read_root():
     r = client.get("/")
     assert r.status_code == 200
-    assert r.json() == {"message": "Hello, Secure World!"}
+
+    # Check if response is JSON
+    if r.headers.get("content-type") == "application/json":
+        assert r.json() == {"message": "Hello, Secure World!"}
+    else:
+        # fallback for HTML page (DAST demo)
+        assert "<html" in r.text.lower()
+        assert "demo dast" in r.text.lower()
 
 
 def test_get_users():

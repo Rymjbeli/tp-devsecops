@@ -32,3 +32,45 @@ jobs:
 
       - name: Build Docker image
         run: docker build -t tp-devsecops .
+
+  snyk-sca:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Snyk CLI
+        run: npm install -g snyk
+
+      - name: Authenticate Snyk
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: snyk auth $SNYK_TOKEN
+
+      - name: Run Snyk dependency scan
+        run: snyk test --file=requirements.txt --severity-threshold=high
+
+  bandit-sast:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Bandit
+        run: pip install bandit jq
+
+      - name: Run Bandit SAST scan
+        run: |
+          bandit -r app -lll -iii
+          # Fail if any HIGH severity issues
+          if bandit -r app -f json | jq '.results[] | select(.issue_severity=="HIGH")' | grep .; then
+            echo "High severity Bandit issues found"; exit 1
+          fi
+

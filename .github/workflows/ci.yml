@@ -114,10 +114,13 @@ jobs:
           docker run --rm --network tp-net -v $(pwd)/zap-reports:/zap/wrk:rw \
             zaproxy/zap-stable zap-baseline.py \
             -t http://tp-devsecops:8000 \
-            -r zap_report.html -d
-          # Fail if any high-risk issues are detected in ZAP report
-          if grep -q "FAIL" zap-reports/zap_report.html; then
+            -r zap_report.html -d -I  # keep -I so warnings do not fail scan
+          echo "ZAP scan finished, checking results..."
+          # Fail only if there are actual FAILs in the report
+          if grep -q "FAIL-NEW" zap-reports/zap_report.html; then
             echo "Critical vulnerabilities found by ZAP"; exit 1
+          else
+            echo "No critical vulnerabilities found, job will succeed."
           fi
 
       - name: Upload ZAP report

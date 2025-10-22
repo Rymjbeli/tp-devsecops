@@ -1,8 +1,5 @@
-# tests/test_main.py
-import base64
-import pickle
 from fastapi.testclient import TestClient
-from app.main import app  # juste app
+from app.main import app
 
 client = TestClient(app)
 
@@ -10,7 +7,9 @@ client = TestClient(app)
 def test_read_root():
     r = client.get("/")
     assert r.status_code == 200
-    assert r.json() == {"message": "Hello, Secure World!"}
+    # fallback for HTML page (DAST demo)
+    assert "<html" in r.text.lower()
+    assert "demo dast" in r.text.lower()
 
 
 def test_get_users():
@@ -37,8 +36,7 @@ def test_get_user_by_id_not_found():
 def test_secret_route():
     r = client.get("/secret")
     assert r.status_code == 200
-    assert "secret" in r.json()
-    assert r.json()["secret"] == "12345"
+    assert r.json() == {"message": "Accès refusé - aucune donnée sensible exposée."}
 
 
 def test_debug_all_users():
@@ -50,29 +48,40 @@ def test_debug_all_users():
     assert any(u["name"] == "Rim" for u in data["users"])
 
 
-def test_find_by_name_sql_pattern():
-    name = "Rim"
-    r = client.get("/find_by_name", params={"name": name})
-    assert r.status_code == 200
-    q = r.json().get("query", "")
-    assert "SELECT * FROM users WHERE name" in q
-    assert name in q
-
-
-def test_run_cmd_echo():
-    r = client.get("/run", params={"cmd": "echo test"})
+def test_find_by_name_found():
+    r = client.get("/find_by_name", params={"name": "Rim"})
     assert r.status_code == 200
     body = r.json()
-    output = body.get("output", "") or body.get("error", "")
-    assert "test" in output.lower()
+    assert body.get("found") is True
+    assert body.get("user")["name"] == "Rim"
 
 
-def test_deserialize_unsafe():
-    sample = {"evil": True, "n": 123}
-    pickled = pickle.dumps(sample)
-    b64 = base64.b64encode(pickled).decode()
-    r = client.post("/deserialize", json={"data": b64})
+def test_find_by_name_not_found():
+    r = client.get("/find_by_name", params={"name": "Unknown"})
     assert r.status_code == 200
-    json_body = r.json()
-    assert json_body.get("ok") is True
-    assert "type" in json_body
+    body = r.json()
+    assert body.get("found") is False
+    assert body.get("user") is None
+
+
+def test_run_cmd_whitelist():
+    r = client.get("/run", params={"cmd": "echo hello"})
+    assert r.status_code == 200
+    output = r.json().get("output", "")
+    assert "hello" in output.lower()
+
+
+def test_run_cmd_non_whitelist():
+    r = client.get("/run", params={"cmd": "echo test"})
+    assert r.status_code == 200
+    output = r.json().get("output", "")
+    assert "non autorisée" in output.lower()
+
+
+def test_deserialize_valid_json():
+    payload = {"data": '{"hello":"world"}'}
+    r = client.post("/deserialize", json=payload)
+    assert r.status_code == 200
+    body = r.json()
+    assert body.get("ok") is True
+    assert "Contenu JSON valide" in body.get("message", "")
